@@ -20,7 +20,9 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 
 byte menu[4] = {1,0,0,0};
-byte programs[15][5] = 
+
+const byte progRows = 30;
+byte programs[progRows][5] = 
 {
   {1, 8, 55, 45, 1},
   {1, 21, 10, 30, 0},
@@ -33,7 +35,11 @@ byte shownZoneID = 0;
 bool activeZones[8] = {0,0,0,0,0,0,0,0};
 byte tempParamVal = 0;
 bool intro = 0;
+
+bool justRefreshed = false; 
 uint32_t secC; 
+
+
 bool sensorOK = 1; 
 
 
@@ -115,13 +121,27 @@ void loop() {
   
   if (menu[0] == byte(1)) //AUTOMATIC MODE
   {
-    if ((timeNow.unixtime() - secC) >= 15 || timeNow.second() == 0)
+    if ((timeNow.unixtime() - secC) >= 15)
     {
       secC = timeNow.unixtime();
       lcd.clear();
       lcd.print("AUTOMATIC MODE");
       lcd.setCursor(0,1);
       lcd.print(String(timeNow.month()) + "-" + String(timeNow.day()) + " " + String(timeNow.hour()) + ":" + String(timeNow.minute()) + " Se:" + String(sensorOK));
+    }
+    else if (timeNow.second() == 0 && !justRefreshed)
+    {
+      secC = timeNow.unixtime();
+      lcd.clear();
+      lcd.print("AUTOMATIC MODE");
+      lcd.setCursor(0,1);
+      lcd.print(String(timeNow.month()) + "-" + String(timeNow.day()) + " " + String(timeNow.hour()) + ":" + String(timeNow.minute()) + " Se:" + String(sensorOK));
+      justRefreshed = true;
+    }
+
+    if (timeNow.unixtime() - secC == 5 && justRefreshed)
+    {
+      justRefreshed = false; 
     }
   }
   else if (menu[0] == byte(2) && menu[1] == byte(1)) //PROGRAMMING MODE
@@ -135,7 +155,7 @@ void loop() {
       }
       else if (key == '8') //DISPLAY THE NEXT ROW
       {
-        if (shownProgID == 15) {;}
+        if (shownProgID == progRows-1) {;}
         else {shownProgID++; printProgram(shownProgID);}
       }
       else if (key == '#') //SELECT A PROGRAM TO MODIFY 
@@ -205,7 +225,7 @@ void loop() {
 
           if (paramID == 0)
           {
-            if (b > byte(8) || b == 0) {}
+            if (b > byte(7) || b == 0) {}
             else {tempParamVal = b; printSetParam();}
           }
           else if (paramID == 1)
@@ -244,7 +264,7 @@ void loop() {
       }
       else if (key == '8')
       {
-        if (shownZoneID == 7) {;}
+        if (shownZoneID == 6) {;}
         else {shownZoneID++; listZones();}
       }
       else if (key == '#')
@@ -278,7 +298,7 @@ void checkActivePrograms(DateTime nw)
 {
   if (menu[0] == 1 || menu[0] == 2)
   {
-    for (byte i = 0; i < 15; i++)
+    for (byte i = 0; i < progRows; i++)
     {
       if (programs[i][0] != 0)
       {
@@ -398,7 +418,7 @@ void printProgram(byte ID)
   if (programs[ID][3] < 10) {ms = "0" + String(programs[ID][3]);}
   else {ms = String(programs[ID][3]);}
   
-  lR = String(ID) + ' ' + String(programs[ID][0]) + " " + hh + ":" + mm + "-" + ms + "  " + String(programs[ID][4]);
+  lR = String(ID+1) + ' ' + String(programs[ID][0]) + " " + hh + ":" + mm + "-" + ms + "  " + String(programs[ID][4]);
   lcd.print(char(223) + uR);
   lcd.setCursor(0,1);
   lcd.print(lR);
@@ -438,11 +458,12 @@ String readBT()
 
 void switchZones()
 {
+  bool mainRelayON = false; 
   if (menu[0] != 4)
   {
     for (int i = 0; i < 8; i++)
     {
-      if (activeZones[i] == 1) {digitalWrite(i + 30, LOW);}
+      if (activeZones[i] == 1) {mainRelayON = true; digitalWrite(i + 30, LOW);}
       else if (activeZones[i] == 0) {digitalWrite(i + 30, HIGH);} 
     }
   }
@@ -453,6 +474,9 @@ void switchZones()
       digitalWrite(i + 30, HIGH);
     }
   }
+
+  if (mainRelayON) {digitalWrite(37, LOW);}
+  else {digitalWrite(37, HIGH);}
 }
 
 void listZones()
