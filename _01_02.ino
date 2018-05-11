@@ -6,43 +6,47 @@
 RTC_DS1307 rtc;
 
 
-PROGMEM const byte ROWS = 4; //four rows
-PROGMEM const byte COLS = 4; //three columns
-PROGMEM const char keys[ROWS][COLS] = {       
+const byte ROWS = 4; //four rows
+const byte COLS = 4; //three columns
+char keys[ROWS][COLS] = {       
   {'1','2','3', 'A'},           
   {'4','5','6', 'B'},           
   {'7','8','9', 'C'},           
   {'*','0','#', 'D'}            
 };                                                                                                        //arduinoPins-->membranePins
-PROGMEM const byte rowPins[ROWS] = {5, 4, 3, 2}; //felső | 2. | 3. | alsó |----connect to the row pinouts of the keypad   2->5  3->6  4->7  5->8
-PROGMEM const byte colPins[COLS] = {9, 8, 7, 6}; //bal | 2. | 3. | jobb |---connect to the column pinouts of the keypad   6->1  7->2  8->3  9->4
+byte rowPins[ROWS] = {5, 4, 3, 2}; //felső | 2. | 3. | alsó |----connect to the row pinouts of the keypad   2->5  3->6  4->7  5->8
+byte colPins[COLS] = {9, 8, 7, 6}; //bal | 2. | 3. | jobb |---connect to the column pinouts of the keypad   6->1  7->2  8->3  9->4
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 
 byte menu[4] = {1,0,0,0};
 
-PROGMEM const byte progRows = 30;
-byte programs[progRows][5];
-
+const byte progRows = 30;
+byte programs[progRows][5] = 
+{
+  {1, 8, 55, 45, 1},
+  {1, 21, 10, 30, 0},
+  {3, 18, 00, 20, 1}, 
+  {5, 18, 20, 30, 1}, 
+};
 byte shownProgID = 0; 
 byte paramID = 0;
 byte shownZoneID = 0;
-
 bool activeZones[8] = {0,0,0,0,0,0,0,0};
-
 byte tempParamVal = 0;
 bool intro = 0;
 
 bool justRefreshed = false; 
 uint32_t secC; 
 
+bool BTControll = false; 
 
+int sensorSens = 300; 
 bool sensorOK = 1; 
 
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial bt(11, 10);
-
 
 
 void setup() {
@@ -277,16 +281,8 @@ void loop() {
   
   while (bt.available())
   {
-    String readed = String(readBT());
-    callBTFunc(readed);
-  }
-  
-  while (Serial.available()) 
-  {
-    char toPrint = char(Serial.read());
-    char clearChar = char('c');
-    if (toPrint == clearChar){lcd.clear(); }
-    else {lcd.print(toPrint);}
+    String toPrint = String(readBT());
+    callBTFunc(toPrint);
   }
 }
 
@@ -449,26 +445,51 @@ String readBT()
     if (c == char('\r') || c == char('\n') || c == char('&')){}
     else {readed += c;}
   }
-  delay(5);
   return readed; 
 }
-
 
 void callBTFunc(String input)
 {
   if (input.length() < 2){return false;}
+  bool valid = true; 
+  if (input.length() < 2){valid = false;}
 
   String commandS = String(input[0]) + String(input[1]) + String(input[2]);
+  String arg = "";
+  for (int i = 3; i < input.length(); i++) 
+  {
+    arg += input[i];
+  }
 
-  if (commandS == "GS")
+  if (commandS == "CN+")
   {
-    
+    if (arg == "password"){BTControll = true; bt.println("Y");}
+    else {bt.println("N");}
   }
-  else if (commandS == "")
+  else if (commandS == "GS+")
   {
-    
+    if (BTControll) 
+    {
+      DateTime timeNow = rtc.now(); 
+      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
+      bt.println(toPrint);
+    }
   }
-  
+  else if (commandS == "SM+")
+  {
+    if (arg.length() != 1) {bt.println("Invalid argument");}
+    else 
+    {
+      int i = arg[0] - '0';
+      byte b = (byte)i;
+
+      sMenu(b, 0, 0, 0); 
+
+      DateTime timeNow = rtc.now(); 
+      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
+      bt.println(toPrint);
+    }
+  }
 }
 
 void switchZones()
@@ -521,7 +542,6 @@ void modZoneStat()
 void checkSensor()
 {
   int sVal = analogRead(A0);  
-  if (sVal < 300) {sensorOK = 0;}
+  if (sVal < sensorSens) {sensorOK = 0;}
   else {sensorOK = 1; }
 }
-
