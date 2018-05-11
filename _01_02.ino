@@ -36,10 +36,8 @@ bool intro = 0;
 bool justRefreshed = false; 
 uint32_t secC; 
 
-int sensorSens = 300; 
-bool sensorOK = 1; 
 
-bool BTControll = false; 
+bool sensorOK = 1; 
 
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -55,10 +53,6 @@ void setup() {
     Serial.println("Couldn't find RTC");
     while (1);
   }
-  if (! rtc.isrunning())
-   {
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-   }
 
   for (byte i = 37; i > 29; i--) //define relay pins
   {
@@ -117,7 +111,6 @@ void loop() {
   
   
   char key = keypad.getKey();
-  
   if (key == 'B') {sMenu(2,1,0,0); printProgram(shownProgID); }
   else if (key == 'C') {sMenu(3,1,0,0); listZones();}
   else if (key == 'D') {sMenu(4,0,0,0); lcd.clear(); lcd.print("WATERING DISABLED");}
@@ -282,11 +275,11 @@ void loop() {
 
   
   
-//  while (bt.available())
-  //{
-   // String readed = String(readBT());
-  //  callBTFunc(readed);
- // }
+  while (bt.available())
+  {
+    String readed = String(readBT());
+    callBTFunc(readed);
+  }
   
   while (Serial.available()) 
   {
@@ -463,70 +456,19 @@ String readBT()
 
 void callBTFunc(String input)
 {
-  bool valid = true; 
-  if (input.length() < 2){valid = false;}
+  if (input.length() < 2){return false;}
 
   String commandS = String(input[0]) + String(input[1]) + String(input[2]);
 
-  String arg;
-  for (int i = 3; i < input.length(); i++) 
-  {
-    arg += input[i];
-  }
-
-  if (commandS == "CN+")
-  {
-    if (arg == "password"){BTControll = true; bt.println("Y");}
-    else {bt.println("N");}
-  }
-  else if (commandS == "GS+")
-  {
-    if (BTControll) 
-    {
-      DateTime timeNow = rtc.now(); 
-      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
-      bt.println(toPrint);
-    }
-  }
-  else if (commandS == "SM+")
-  {
-    if (arg.length() > 1) {bt.println("Invalid argument");}
-    else 
-    {
-      int i = arg[0] - '0';
-      byte b = (byte)i;
-
-      sMenu(b, 0, 0, 0); 
-
-      DateTime timeNow = rtc.now(); 
-      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
-      bt.println(toPrint);
-    }
-  }
-  else if (commandS == "SC+")
+  if (commandS == "GS")
   {
     
   }
-  else if (commandS == "GP+")
+  else if (commandS == "")
   {
     
   }
-  else if (commandS == "SP+")
-  {
-    
-  }
-  else if (commandS == "GZ+")
-  {
-    
-  }
-  else if (commandS == "SZ+")
-  {
-    
-  }
-  else if (commandS == "DC+")
-  {
-    
-  }
+  
 }
 
 void switchZones()
@@ -579,7 +521,7 @@ void modZoneStat()
 void checkSensor()
 {
   int sVal = analogRead(A0);  
-  if (sVal < sensorSens) {sensorOK = 0;}
+  if (sVal < 300) {sensorOK = 0;}
   else {sensorOK = 1; }
 }
 
