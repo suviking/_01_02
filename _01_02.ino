@@ -120,8 +120,24 @@ void loop() {
   else if (key == 'D') {sMenu(4,0,0,0); lcd.clear(); lcd.print("WATERING DISABLED");}
   else if (key == 'A') {sMenu(1,0,0,0); lcd.clear(); lcd.print("AUTOMATIC MODE"); lcd.setCursor(0,1);
                         lcd.print(String(timeNow.month()) + "-" + String(timeNow.day()) + " " + String(timeNow.hour()) + ":" + String(timeNow.minute()) + " Se:" + String(sensorOK));}
-  
-  if (menu[0] == byte(1)) //AUTOMATIC MODE
+
+  if (BTControll)
+  {
+    if (!justRefreshed)
+    {
+      secC = timeNow.unixtime();
+      lcd.clear();
+      lcd.print("BLUETOOTH CONN");
+      lcd.setCursor(0,1);
+      lcd.print("No manual setup");
+      justRefreshed = true;
+    }
+    if (timeNow.unixtime() - secC == 5 && justRefreshed)
+    {
+      justRefreshed = false; 
+    }
+  }
+  else if (menu[0] == byte(1)) //AUTOMATIC MODE
   {
     if ((timeNow.unixtime() - secC) >= 15)
     {
@@ -276,6 +292,7 @@ void loop() {
     }
   }
   else if (menu[0] == byte(4) && menu[1] == byte(0) && menu[2] == byte(0) && menu[3] == byte(0)){} //DISABLE WATERING
+  
 
   
   
@@ -456,6 +473,8 @@ void callBTFunc(String input)
 
   String commandS = String(input[0]) + String(input[1]) + String(input[2]);
   String arg = "";
+  String loginErr = "You have to log in first, to use the commands!";
+  
   for (int i = 3; i < input.length(); i++) 
   {
     arg += input[i];
@@ -474,21 +493,31 @@ void callBTFunc(String input)
       String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
       bt.println(toPrint);
     }
+    else {bt.println(loginErr);}
   }
   else if (commandS == "SM+")
   {
-    if (arg.length() != 1) {bt.println("Invalid argument");}
-    else 
+    if (BTControll)
     {
-      int i = arg[0] - '0';
-      byte b = (byte)i;
-
-      sMenu(b, 0, 0, 0); 
-
-      DateTime timeNow = rtc.now(); 
-      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
-      bt.println(toPrint);
+      if (arg.length() != 1) {bt.println("Invalid argument");}
+      else 
+      {
+        int i = arg[0] - '0';
+        byte b = (byte)i;
+  
+        sMenu(b, 0, 0, 0); 
+  
+        DateTime timeNow = rtc.now(); 
+        String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
+        bt.println(toPrint);
+      }
     }
+    else {bt.println(loginErr);}}
+  }
+  else if (command == "DC+")
+  {
+    BTControll = false; 
+    bt.println("You have logged out.");
   }
 }
 
