@@ -467,57 +467,188 @@ String readBT()
 
 void callBTFunc(String input)
 {
-  if (input.length() < 2){return false;}
-  bool valid = true; 
-  if (input.length() < 2){valid = false;}
-
-  String commandS = String(input[0]) + String(input[1]) + String(input[2]);
-  String arg = "";
-  String loginErr = "You have to log in first, to use the commands!";
+  byte error = 0;
   
-  for (int i = 3; i < input.length(); i++) 
+  if (input.length() < 2){error = 1;}
+  else 
   {
-    arg += input[i];
-  }
-
-  if (commandS == "CN+")
-  {
-    if (arg == "password"){BTControll = true; bt.println("Y");}
-    else {bt.println("N");}
-  }
-  else if (commandS == "GS+")
-  {
-    if (BTControll) 
+  
+    String commandS = String(input[0]) + String(input[1]) + String(input[2]);
+    String arg = "";
+    
+    for (int i = 3; i < input.length(); i++) 
+    {
+      arg += input[i];
+    }
+  
+    if (!BTControll && commandS != "CN+" && commandS != "DC+")
+    {
+      error = 2; 
+    }
+    else if (commandS == "CN+")
+    {
+      if (arg == "password"){BTControll = true; bt.println("Y");}
+      else {bt.println("N");}
+    }
+    
+    else if (commandS == "GS+")
     {
       DateTime timeNow = rtc.now(); 
-      String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
-      bt.println(toPrint);
+      bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens));
     }
-    else {bt.println(loginErr);}
-  }
-  else if (commandS == "SM+")
-  {
-    if (BTControll)
+    else if (commandS == "SM+")
     {
-      if (arg.length() != 1) {bt.println("Invalid argument");}
-      else 
+        if (arg.length() != 1) {error = 3;}
+        else 
+        {
+          int i = arg[0] - '0';
+          byte b = (byte)i;
+    
+          sMenu(b, 0, 0, 0); 
+    
+          DateTime timeNow = rtc.now(); 
+          bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens));
+        }
+    }
+    else if (commandS == "SC+")
+    {
+      if (arg.length() != 16) {error = 3;}
+      else
       {
-        int i = arg[0] - '0';
-        byte b = (byte)i;
+        int Y;
+        int M; 
+        int D;
+        int h;
+        int m;
+        
+              
+        char * strtokIndx;
+        char cArg[arg.length()];
+        arg.toCharArray(cArg, arg.length());
   
-        sMenu(b, 0, 0, 0); 
+        strtokIndx = strtok(cArg,"/");      
+        Y = atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/");
+        M = atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/"); 
+        D = atoi(strtokIndx); 
+        
+        strtokIndx = strtok(NULL, "/"); 
+        h = atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/"); 
+        m = atoi(strtokIndx);
   
-        DateTime timeNow = rtc.now(); 
-        String toPrint = String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens);
-        bt.println(toPrint);
+        rtc.adjust(DateTime(Y, M, D, h, m));
+        bt.println("Clock setted to: " + String(Y) + "-" + String(M) + "-" + String(D) + " " + String(h) + ":" + String(m));
       }
     }
-    else {bt.println(loginErr);}}
+    else if (commandS == "GP+")
+    {
+      if (arg.length() != 1){error = 3;}
+      else
+      {
+        int i = arg[0] - '0';
+        byte row = (byte)i;
+  
+        byte Z = programs[row][0];
+        byte stH = programs[row][1];
+        byte stM = programs[row][2];
+        byte dur = programs[row][3];
+        byte sens = programs[row][4];
+  
+        bt.println(String(Z) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));
+      }
+    }
+    else if (commandS = "SP+")
+    {
+      if (arg.length() != 17){error = 3;}
+      else 
+      {
+        byte id;
+        byte zone;
+        byte stH;
+        byte stM;
+        byte dur;
+        byte sens; 
+        
+        char * strtokIndx;
+        char cArg[arg.length()];
+        arg.toCharArray(cArg, arg.length());
+  
+        strtokIndx = strtok(cArg,"/");      
+        id = (byte)atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/");
+        zone = (byte)atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/"); 
+        stH = (byte)atoi(strtokIndx); 
+        
+        strtokIndx = strtok(NULL, "/"); 
+        stM = (byte)atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/"); 
+        dur = (byte)atoi(strtokIndx);
+  
+        strtokIndx = strtok(NULL, "/"); 
+        sens = (byte)atoi(strtokIndx);
+  
+        programs[id][0] = zone;
+        programs[id][1] = stH;
+        programs[id][2] = stM;
+        programs[id][3] = dur;
+        programs[id][4] = sens;
+        
+        bt.println(id + ". program beállítva: /" + String(zone) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));  
+      }
+    }
+    else if (commandS == "GZ+")
+    {
+      bt.println(String(activeZones[0]) + "/" + String(activeZones[1]) + "/" + String(activeZones[2]) + "/" + String(activeZones[3]) + "/" + String(activeZones[4]) + 
+      "/" + String(activeZones[5]) + "/" + String(activeZones[6]) + "/" + String(activeZones[7]) + "/" + String(activeZones[8]));
+    }
+    else if (commandS == "SZ+")
+    {
+      if (arg.length() != 4){error = 3;}
+      else 
+      {
+        int id;
+        int state;
+        bool stateB;
+        
+        char * strtokIndx;
+        char cArg[arg.length()];
+        arg.toCharArray(cArg, arg.length());
+  
+        strtokIndx = strtok(cArg,"/");      
+        id = atoi(strtokIndx);
+        
+        strtokIndx = strtok(NULL, "/");
+        state = atoi(strtokIndx);
+  
+        if (state == 1) {stateB = true;}
+        else if (state == 0) {stateB = false;}
+        else {error = 3;}
+  
+         activeZones[id] = stateB;
+  
+         bt.println(String(activeZones[id]));
+      }
+    }
+    else if (commandS == "DC+")
+    {
+      BTControll = false; 
+      bt.println("LO");
+    }
+    else {error = 4;}
   }
-  else if (command == "DC+")
+  
+  if (error > 0)
   {
-    BTControll = false; 
-    bt.println("You have logged out.");
+    bt.println(String(error));
   }
 }
 
@@ -574,3 +705,7 @@ void checkSensor()
   if (sVal < sensorSens) {sensorOK = 0;}
   else {sensorOK = 1; }
 }
+
+
+
+
