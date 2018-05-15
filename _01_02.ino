@@ -29,10 +29,14 @@ byte programs[progRows][5] =
   {3, 18, 00, 20, 1}, 
   {5, 18, 20, 30, 1}, 
 };
+
 byte shownProgID = 0; 
 byte paramID = 0;
 byte shownZoneID = 0;
-bool activeZones[8] = {0,0,0,0,0,0,0,0};
+
+const byte zoneNo = 8;
+bool activeZones[zoneNo];
+
 byte tempParamVal = 0;
 bool intro = 0;
 
@@ -101,7 +105,7 @@ void setup() {
 
 lcd.clear(); lcd.print("AUTOMATIC MODE");
 
-
+resetZones();
 
 secC = 0;
 }
@@ -115,10 +119,10 @@ void loop() {
   
   
   char key = keypad.getKey();
-  if (key == 'B') {sMenu(2,1,0,0); printProgram(shownProgID); }
+  if (key == 'B') {sMenu(2,1,0,0); printProgram(shownProgID); resetZones();}
   else if (key == 'C') {sMenu(3,1,0,0); listZones();}
   else if (key == 'D') {sMenu(4,0,0,0); lcd.clear(); lcd.print("WATERING DISABLED");}
-  else if (key == 'A') {sMenu(1,0,0,0); lcd.clear(); lcd.print("AUTOMATIC MODE"); lcd.setCursor(0,1);
+  else if (key == 'A') {sMenu(1,0,0,0); resetZones(); lcd.clear(); lcd.print("AUTOMATIC MODE"); lcd.setCursor(0,1); 
                         lcd.print(String(timeNow.month()) + "-" + String(timeNow.day()) + " " + String(timeNow.hour()) + ":" + String(timeNow.minute()) + " Se:" + String(sensorOK));}
 
   if (BTControll)
@@ -132,7 +136,7 @@ void loop() {
       lcd.print("No manual setup");
       justRefreshed = true;
     }
-    if (timeNow.unixtime() - secC == 5 && justRefreshed)
+    if (timeNow.unixtime() - secC >= 15 && justRefreshed)
     {
       justRefreshed = false; 
     }
@@ -157,7 +161,7 @@ void loop() {
       justRefreshed = true;
     }
 
-    if (timeNow.unixtime() - secC == 5 && justRefreshed)
+    if (timeNow.unixtime() - secC >= 1 && justRefreshed)
     {
       justRefreshed = false; 
     }
@@ -234,7 +238,14 @@ void loop() {
     {
       if (key)
       {
-        if (key == '#') {programs[shownProgID][paramID] = tempParamVal; sMenu(2,1,2,0); showParam();}
+        if (key == '#') 
+        {
+          programs[shownProgID][paramID] = tempParamVal; 
+          byte zone = programs[shownProgID][0];
+          activeZones[zone-1] = 0; 
+          sMenu(2,1,2,0); 
+          showParam();
+        }
         else if (key == '*') {sMenu(2,1,2,0); showParam();}
         else
         {
@@ -469,7 +480,7 @@ void callBTFunc(String input)
 {
   byte error = 0;
   
-  if (input.length() < 2){error = 1;}
+  if (input.length() < 2){bt.println("1");}
   else 
   {
   
@@ -489,8 +500,7 @@ void callBTFunc(String input)
     {
       if (arg == "password"){BTControll = true; bt.println("Y");}
       else {bt.println("N");}
-    }
-    
+    }  
     else if (commandS == "GS+")
     {
       DateTime timeNow = rtc.now(); 
@@ -505,6 +515,7 @@ void callBTFunc(String input)
           byte b = (byte)i;
     
           sMenu(b, 0, 0, 0); 
+          if (b != 3) {resetZones();}
     
           DateTime timeNow = rtc.now(); 
           bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens));
@@ -512,7 +523,7 @@ void callBTFunc(String input)
     }
     else if (commandS == "SC+")
     {
-      if (arg.length() != 16) {error = 3;}
+      if (arg.length() != 17) {error = 3;}
       else
       {
         int Y;
@@ -541,7 +552,7 @@ void callBTFunc(String input)
         strtokIndx = strtok(NULL, "/"); 
         m = atoi(strtokIndx);
   
-        rtc.adjust(DateTime(Y, M, D, h, m));
+        rtc.adjust(DateTime(Y, M, D, h, m, 0));
         bt.println("Clock setted to: " + String(Y) + "-" + String(M) + "-" + String(D) + " " + String(h) + ":" + String(m));
       }
     }
@@ -562,9 +573,9 @@ void callBTFunc(String input)
         bt.println(String(Z) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));
       }
     }
-    else if (commandS = "SP+")
+    else if (commandS == "SP+")
     {
-      if (arg.length() != 17){error = 3;}
+      if (arg.length() != 18){error = 3;}
       else 
       {
         byte id;
@@ -601,6 +612,7 @@ void callBTFunc(String input)
         programs[id][2] = stM;
         programs[id][3] = dur;
         programs[id][4] = sens;
+        activeZones[zone-1] = 0; 
         
         bt.println(id + ". program beállítva: /" + String(zone) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));  
       }
@@ -612,7 +624,7 @@ void callBTFunc(String input)
     }
     else if (commandS == "SZ+")
     {
-      if (arg.length() != 4){error = 3;}
+      if (arg.length() != 5){error = 3;}
       else 
       {
         int id;
@@ -644,12 +656,15 @@ void callBTFunc(String input)
       bt.println("LO");
     }
     else {error = 4;}
+    
+    if (error > 0)
+    {
+      bt.println(String(error));
+    }
+    
   }
   
-  if (error > 0)
-  {
-    bt.println(String(error));
-  }
+  
 }
 
 void switchZones()
@@ -706,6 +721,13 @@ void checkSensor()
   else {sensorOK = 1; }
 }
 
+void resetZones()
+{
+  for (byte i = 0; i < zoneNo; i++)
+  {
+    activeZones[i] = false; 
+  }
+}
 
 
 
