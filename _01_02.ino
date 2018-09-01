@@ -7,7 +7,7 @@ RTC_DS1307 rtc;
 
 
 const byte ROWS = 4; //four rows
-const byte COLS = 4; //three columns
+const byte COLS = 4; //four columns
 char keys[ROWS][COLS] = {       
   {'1','2','3', 'A'},           
   {'4','5','6', 'B'},           
@@ -47,6 +47,7 @@ bool BTControll = false;
 
 int sensorSens = 300; 
 bool sensorOK = 1; 
+int seasonAdj = 100; 
 
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -328,7 +329,7 @@ void checkActivePrograms(DateTime nw)
         byte zone = programs[i][0];
         
         DateTime progStart (nw.year(), nw.month(), nw.day(), pHour, pMin, 0);
-        DateTime progStop = (progStart.unixtime() + pDur*60);
+        DateTime progStop = (progStart.unixtime() + pDur*60*seasonAdj/100);
 
         if (programs[i][4] == 0)
         {
@@ -451,7 +452,7 @@ void deleteProg(byte ID)
     programs[ID][i] = 0;
   }
   lcd.clear();
-  lcd.print("Prog " + String(ID) + " deleted");
+  lcd.print("Prog " + String(ID+1) + " deleted");
   delay(1000);
   sMenu(2,1,0,0);
 }
@@ -496,17 +497,17 @@ void callBTFunc(String input)
     {
       error = 2; 
     }
-    else if (commandS == "CN+")
+    else if (commandS == "CN+") //log into BT control with password
     {
       if (arg == "password"){BTControll = true; bt.println("Y");}
       else {bt.println("N");}
     }  
-    else if (commandS == "GS+")
+    else if (commandS == "GS+") //reads the arduino's state
     {
       DateTime timeNow = rtc.now(); 
-      bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens));
+      bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens) + "/" + String(seasonAdj));
     }
-    else if (commandS == "SM+")
+    else if (commandS == "SM+") //set mode
     {
         if (arg.length() != 1) {error = 3;}
         else 
@@ -521,7 +522,7 @@ void callBTFunc(String input)
           bt.println(String(menu[0]) + "/" + String(timeNow.unixtime()) + "/" + String(sensorOK) + "/" + String(sensorSens));
         }
     }
-    else if (commandS == "SC+")
+    else if (commandS == "SC+") //set clock 
     {
       if (arg.length() != 17) {error = 3;}
       else
@@ -556,7 +557,7 @@ void callBTFunc(String input)
         bt.println("Clock setted to: " + String(Y) + "-" + String(M) + "-" + String(D) + " " + String(h) + ":" + String(m));
       }
     }
-    else if (commandS == "GP+")
+    else if (commandS == "GP+") //read the choosen program's parameters
     {
       if (arg.length() != 1){error = 3;}
       else
@@ -573,7 +574,7 @@ void callBTFunc(String input)
         bt.println(String(Z) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));
       }
     }
-    else if (commandS == "SP+")
+    else if (commandS == "SP+") //set the program's parameters
     {
       if (arg.length() != 18){error = 3;}
       else 
@@ -617,12 +618,12 @@ void callBTFunc(String input)
         bt.println(id + ". program beállítva: /" + String(zone) + "/" + String(stH) + "/" + String(stM) + "/" + String(dur) + "/" + String(sens));  
       }
     }
-    else if (commandS == "GZ+")
+    else if (commandS == "GZ+") //read the choosen zone's state
     {
       bt.println(String(activeZones[0]) + "/" + String(activeZones[1]) + "/" + String(activeZones[2]) + "/" + String(activeZones[3]) + "/" + String(activeZones[4]) + 
       "/" + String(activeZones[5]) + "/" + String(activeZones[6]) + "/" + String(activeZones[7]) + "/" + String(activeZones[8]));
     }
-    else if (commandS == "SZ+")
+    else if (commandS == "SZ+") //set the given zone to given state
     {
       if (arg.length() != 5){error = 3;}
       else 
@@ -650,10 +651,45 @@ void callBTFunc(String input)
          bt.println(String(activeZones[id]));
       }
     }
-    else if (commandS == "DC+")
+    else if (commandS == "DC+") //log out from BT control mode
     {
       BTControll = false; 
       bt.println("LO");
+    }
+    else if (commandS == "RS+") //read sensor sensitivity 
+    { 
+      bt.println(String(sensorSens));
+    }
+    else if (commandS == "SS+") //set sensor sens.
+    {
+      if (arg.length()<2 || arg.length()>3 ) {error = 3;}
+      else 
+      {
+        int i = arg.toInt();
+        sensorSens = i;
+  
+        resetZones();
+
+        bt.println(String(sensorSens));
+      }
+    }
+    else if (commandS == "GA+") //get season adjustment
+    {
+      bt.println(String(seasonAdj));
+    }
+    else if (commandS == "SA+") //set season adjustment
+    {
+      if (arg.length() != 1) {error = 3;}
+      else 
+      {
+        int i = arg.toInt();
+        seasonAdj = i;
+  
+        resetZones();
+  
+        DateTime timeNow = rtc.now(); 
+        bt.println(String(seasonAdj));
+      }
     }
     else {error = 4;}
     
@@ -728,6 +764,3 @@ void resetZones()
     activeZones[i] = false; 
   }
 }
-
-
-
