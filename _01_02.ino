@@ -683,7 +683,8 @@ void callBTFunc(String input)
       else 
       {
         int i = arg.toInt();
-        seasonAdj = i;
+        if (seasonAdj < 25 || seasonAdj > 300) {error = 3;}
+        else {seasonAdj = i;}
   
         resetZones();
   
