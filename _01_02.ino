@@ -1,8 +1,10 @@
+#include <EEPROM.h>
 #include <LiquidCrystal_I2C.h>
 #include <Streaming.h>
 #include <SoftwareSerial.h>
 #include <Keypad.h>
 #include "RTClib.h"
+
 RTC_DS1307 rtc;
 
 
@@ -22,13 +24,7 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 byte menu[4] = {1,0,0,0};
 
 const byte progRows = 30;
-byte programs[progRows][5] = 
-{
-  {1, 8, 55, 45, 1},
-  {1, 21, 10, 30, 0},
-  {3, 18, 00, 20, 1}, 
-  {5, 18, 20, 30, 1}, 
-};
+byte programs[progRows][5]; //EEPROM address starts from 6
 
 byte shownProgID = 0; 
 byte paramID = 0;
@@ -43,11 +39,14 @@ bool intro = 0;
 bool justRefreshed = false; 
 uint32_t secC; 
 
+uint32_t eepromCounter;
+int updateTime;
+
 bool BTControll = false; 
 
-int sensorSens = 300; 
+int sensorSens; //EEPROM address: 0-1
 bool sensorOK = 1; 
-int seasonAdj = 100; 
+int seasonAdj;  //EEPROM address: 2-3
 
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -55,7 +54,28 @@ SoftwareSerial bt(11, 10);
 
 
 void setup() {
-  Serial.begin(9600);
+//Loading data from eeprom
+
+  EEPROM.get(0, sensorSens);
+  EEPROM.get(2, seasonAdj);
+
+  int k = 6; //EEPROM address index from 6
+  for (int i = 0; i < progRows; i++)
+  {
+    for (int j = 0; j < 5; j++)
+    {
+      programs[i][j] = EEPROM.read(k);
+      k++;
+    }
+  }
+
+  int updateTime = 1; //How often data should be backed up te EEPROM, in minutes
+  uint32_t eepromCounter = 0;
+  
+//-------------------------
+  
+  
+  Serial.begin(19200);
   bt.begin(9600);
 
   if (! rtc.begin()) {
@@ -118,6 +138,14 @@ void loop() {
   checkActivePrograms(timeNow);
   switchZones();
   
+
+  if ((timeNow.unixtime() - eepromCounter) >= updateTime*60 ) 
+  {
+    updateEEPROM();
+    eepromCounter = timeNow.unixtime();
+  }
+
+
   
   char key = keypad.getKey();
   if (key == 'B') {sMenu(2,1,0,0); printProgram(shownProgID); resetZones();}
@@ -304,10 +332,8 @@ void loop() {
     }
   }
   else if (menu[0] == byte(4) && menu[1] == byte(0) && menu[2] == byte(0) && menu[3] == byte(0)){} //DISABLE WATERING
-  
 
-  
-  
+
   while (bt.available())
   {
     String toPrint = String(readBT());
@@ -698,10 +724,7 @@ void callBTFunc(String input)
     {
       bt.println(String(error));
     }
-    
   }
-  
-  
 }
 
 void switchZones()
@@ -763,5 +786,36 @@ void resetZones()
   for (byte i = 0; i < zoneNo; i++)
   {
     activeZones[i] = false; 
+  }
+}
+
+void updateEEPROM()
+{
+  int EEPROMSensorSens;
+  EEPROM.get(0, EEPROMSensorSens);
+  if (sensorSens == EEPROMSensorSens){}
+  else {
+    Serial.println("0," + String(sensorSens));
+    //EEPROM.put(0, sensorSens);
+  }
+
+  int EEPROMSeasonAdj;
+  EEPROM.get(2, EEPROMSeasonAdj);
+  if (seasonAdj == EEPROMSeasonAdj){}
+  else {
+  Serial.println("2," + String(seasonAdj));
+  //EEPROM.put(2, seasonAdj);
+  }
+
+
+  int k = 6; //EEPROM address index from 6
+  for (int i = 0; i < progRows; i++)
+  {
+    for (int j = 0; j < 5; j++)
+    {
+      Serial.println(k + "," + String(programs[i][j]));
+      //EEPROM.update(k, programs[i][j]);
+      k++;
+    }
   }
 }
