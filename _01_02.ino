@@ -69,7 +69,7 @@ void setup() {
     }
   }
 
-  updateTime = 900; //How often data should be backed up te EEPROM, in 
+  updateTime = 900; //How often data should be backed up to EEPROM, in seconds
   eepromCounter = 0;
   
 //-------------------------
@@ -283,7 +283,7 @@ void loop() {
 
           if (paramID == 0)
           {
-            if (b > byte(7) || b == 0) {}
+            if (b > byte(8) || b == 0) {}
             else {tempParamVal = b; printSetParam();}
           }
           else if (paramID == 1)
@@ -728,12 +728,11 @@ void callBTFunc(String input)
 
 void switchZones()
 {
-  bool mainRelayON = false; 
   if (menu[0] != 4)
   {
     for (int i = 0; i < 8; i++)
     {
-      if (activeZones[i] == 1) {mainRelayON = true; digitalWrite(i + 30, LOW);}
+      if (activeZones[i] == 1) {digitalWrite(i + 30, LOW);}
       else if (activeZones[i] == 0) {digitalWrite(i + 30, HIGH);} 
     }
   }
@@ -744,9 +743,6 @@ void switchZones()
       digitalWrite(i + 30, HIGH);
     }
   }
-
-  if (mainRelayON) {digitalWrite(37, LOW);}
-  else {digitalWrite(37, HIGH);}
 }
 
 void listZones()
